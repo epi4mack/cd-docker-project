@@ -1,0 +1,47 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: docker build -t maksimrudenok/cd-docker-project:latest .
+
+      - name: Log in to Docker Hub
+        run: echo '${{ secrets.DOCKER_PASSWORD }}' | docker login -u '${{ secrets.DOCKER_USERNAME }}' --password-stdin
+
+      - name: Push Docker image to Docker Hub
+        run: docker push maksimrudenok/cd-docker-project:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Deploy to Windows server via SSH and run Docker container
+        run: |
+          COMMAND='
+            New-Item -Path C:\Users\maks\ACTIONFILE.txt -ItemType File -Force;
+            Add-Content -Path C:\Users\maks\ACTIONFILE.txt -Value "Deployed at $(Get-Date)";
+            docker stop cd-app -ErrorAction SilentlyContinue;
+            docker rm cd-app -ErrorAction SilentlyContinue;
+            docker pull maksimrudenok/cd-docker-project:latest;
+            docker run -d -p 5000:5000 --name cd-app maksimrudenok/cd-docker-project:latest
+          '
+          ENC_COMMAND=$(echo -n "$COMMAND" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} powershell -EncodedCommand $ENC_COMMAND
