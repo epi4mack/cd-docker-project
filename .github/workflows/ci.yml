@@ -36,8 +36,6 @@ jobs:
       - name: Deploy to Windows server via SSH and run Docker container
         run: |
           COMMAND='
-            New-Item -Path C:\Users\maks\ACTIONFILE.txt -ItemType File -Force;
-            Add-Content -Path C:\Users\maks\ACTIONFILE.txt -Value "Deployed at $(Get-Date)";
             docker stop cd-app -ErrorAction SilentlyContinue;
             docker rm cd-app -ErrorAction SilentlyContinue;
             docker pull maksimrudenok/cd-docker-project:latest;
